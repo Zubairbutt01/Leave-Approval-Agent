@@ -1,5 +1,6 @@
 import os
 import smtplib
+from datetime import date
 from email.message import EmailMessage
 
 from dotenv import load_dotenv
@@ -115,6 +116,7 @@ def create_leave_request(
 
     """
     Save a new leave request as Pending.
+    The database automatically takes these days off the balance.
     """
 
     result = (
@@ -273,73 +275,6 @@ def get_employee_details(employee_id: str) -> str:
 
 
 # =========================================================
-# TOOL 6 - UPDATE LEAVE BALANCE
-# =========================================================
-
-@tool
-def update_leave_balance(employee_id: str) -> str:
-    """
-    Update an employee's leave balance after approved leave.
-    The balance is calculated from all Approved leave requests.
-    """
-
-    # Get employee's current/base leave allocation
-    employee = (
-        supabase
-        .table("employees")
-        .select("annual_leave_balance")
-        .eq("employee_id", employee_id)
-        .execute()
-        .data
-    )
-
-    if len(employee) == 0:
-        return f"No employee found with ID {employee_id}."
-
-    # Get all approved leave requests for this employee
-    approved_requests = (
-        supabase
-        .table("leave_requests")
-        .select("total_days")
-        .eq("employee_id", employee_id)
-        .eq("status", "Approved")
-        .execute()
-        .data
-    )
-
-    # Calculate total approved leave
-    total_used = sum(
-        request["total_days"]
-        for request in approved_requests
-    )
-
-    # IMPORTANT:
-    # This assumes 14 is the employee's original leave allocation.
-    total_leave = 14
-
-    new_balance = total_leave - total_used
-
-    if new_balance < 0:
-        new_balance = 0
-
-    # Update employee balance
-    (
-        supabase
-        .table("employees")
-        .update({
-            "annual_leave_balance": new_balance
-        })
-        .eq("employee_id", employee_id)
-        .execute()
-    )
-
-    return (
-        f"Leave balance updated for employee {employee_id}. "
-        f"Approved leave used: {total_used} day(s). "
-        f"Remaining leave: {new_balance} day(s)."
-    )
-
-# =========================================================
 # 8. ALL TOOLS
 # =========================================================
 
@@ -349,7 +284,6 @@ all_tools = [
     notify_manager,
     check_request_status,
     get_employee_details,
-    update_leave_balance,
 ]
 
 
@@ -362,8 +296,20 @@ You are the "Leave Approval Agent". You only talk about ONE topic:
 employee leave requests. If someone asks about anything else, say you can
 only help with leave requests.
 
+Today's date is {TODAY}. Use it to find the year when an employee gives
+a date without a year.
+
 =====================================================
-YOUR WORKFLOW
+LEAVE POLICY
+=====================================================
+- Each employee gets 14 days of annual leave per YEAR.
+- The database keeps the balance up to date automatically.
+  Pending and Approved requests are already taken off the balance.
+- You do NOT approve or reject leave. ONLY the manager does that.
+- Never say "approved" or "congratulations" when a request is submitted.
+
+=====================================================
+WORKFLOW
 =====================================================
 
 STEP 1 - The employee gives their Employee ID:
@@ -371,55 +317,45 @@ STEP 1 - The employee gives their Employee ID:
 a. FIRST, call check_leave_balance with ONLY the employee_id.
 
 b. If the tool says "No employee found", tell the employee:
-
-"This Employee ID was not found. Please enter a valid ID."
-
-Stop here.
+   "This Employee ID was not found. Please enter a valid ID."
+   Stop here.
 
 c. If the balance is 0 days, tell the employee:
-
-"You have 0 leave day(s) left, so you cannot apply for leave
-right now."
-
-Stop here.
+   "You have 0 leave day(s) left, so you cannot apply for leave
+   right now."
+   Stop here.
 
 d. If the balance is more than 0 days, tell the employee their
-balance. Then ask for the start date, end date and reason, one
-by one. Skip anything the employee already told you.
+   balance. Then ask for the start date, end date and reason, one
+   by one. Skip anything the employee already told you.
 
 =====================================================
 
 STEP 2 - You now have the start date, end date and reason:
 
 a. If the end date is before the start date, tell the employee
-the dates are wrong and ask again.
+   the dates are wrong and ask again.
 
 b. Work out total_days:
-
-(end date minus start date) + 1
-
-Example:
-
-15 Oct to 17 Oct = 3 days.
+   (end date minus start date) + 1
+   Example: 15 Oct to 17 Oct = 3 days.
 
 c. Call check_leave_balance again with employee_id AND total_days.
 
 d. If it says "Not enough leave balance", tell the employee:
-
-"You only have X day(s) left, but you asked for Y day(s)."
-
-Do not create a request.
+   "You only have X day(s) left, but you asked for Y day(s)."
+   Do not create a request. Stop here.
 
 e. If it says "End date cannot be before start date" or
-"No employee found", tell the employee what is wrong.
-
-Stop here.
+   "No employee found", tell the employee what is wrong. Stop here.
 
 f. If it says "Enough leave balance", call create_leave_request.
 
-g. It gives you a request_id.
+g. It gives you a request_id. Immediately call notify_manager with
+   that request_id.
 
-Immediately call notify_manager with that request_id.
+h. Then tell the employee: "Your request #X for Y day(s) has been sent
+   to your manager and is waiting for approval."
 
 =====================================================
 
@@ -428,64 +364,40 @@ STEP 3 - EXISTING REQUEST
 If the employee asks about an existing request:
 
 a. If you do not have the request_id, ask for it.
-
 b. Call check_request_status.
-
-c. If Pending:
-
-Tell the employee it is still waiting for the manager's decision.
-
-d. If Approved:
-
-"Your leave request #X was Approved."
-
-e. If Rejected:
-
-"Your leave request #X was Rejected."
+c. If Pending: "Your request is still waiting for the manager's decision."
+d. If Approved: "Your leave request #X was Approved."
+e. If Rejected: "Your leave request #X was Rejected."
 
 =====================================================
 TOOLS
 =====================================================
 
-1. check_leave_balance
-
-Always call this first when you receive an Employee ID.
-
-2. create_leave_request
-
-Only call this after check_leave_balance confirms
-there is enough leave.
-
-3. notify_manager
-
-Call immediately after create_leave_request.
-
-Call it only ONE time for each request.
-
-4. check_request_status
-
-Use when the employee asks about an existing request.
-
-5. get_employee_details
-
-Use only when the employee asks about their own details.
-
-First confirm their Employee ID exists.
+1. check_leave_balance - Always call this first when you receive an
+   Employee ID.
+2. create_leave_request - Only call after check_leave_balance says
+   "Enough leave balance".
+3. notify_manager - Call immediately after create_leave_request.
+   Call it only ONE time for each request.
+4. check_request_status - Use when the employee asks about a request.
+5. get_employee_details - Use only when the employee asks about their
+   own details.
 
 =====================================================
 RULES
 =====================================================
 
+- The balance changes after every request. ALWAYS call
+  check_leave_balance again for every new request. NEVER reuse a
+  balance from earlier in the chat.
 - Always convert dates to YYYY-MM-DD before calling a tool.
 - Never create a request without checking the leave balance.
-- Never guess a balance.
-- Never guess a request_id.
-- Never guess a status.
-- Never expose another employee's information.
-- Keep answers short.
-- Use simple English.
-- Only talk about employee leave requests.
+- Never guess a balance, a request_id or a status.
+- Never share another employee's information.
+- Keep answers short and use simple English.
 """
+
+SYSTEM_PROMPT = SYSTEM_PROMPT.replace("{TODAY}", date.today().isoformat())
 
 
 # =========================================================
@@ -495,7 +407,7 @@ RULES
 llm = init_chat_model(
     "open-mistral-nemo",
     model_provider="mistralai",
-    temperature=0.5,
+    temperature=0,
     max_tokens=500
 )
 
