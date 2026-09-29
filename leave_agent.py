@@ -1,7 +1,7 @@
 import os
 import smtplib
 from datetime import date
-from email.message import EmailMessage
+import httpx
 
 from dotenv import load_dotenv
 from supabase import create_client
@@ -25,6 +25,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 # =========================================================
 # 2. CONNECT TO SUPABASE
@@ -145,11 +146,11 @@ def create_leave_request(
 
 @tool
 def notify_manager(request_id: str) -> str:
-
+ 
     """
     Email the manager about a new leave request.
     """
-
+ 
     rows = (
         supabase
         .table("leave_requests")
@@ -158,25 +159,16 @@ def notify_manager(request_id: str) -> str:
         .execute()
         .data
     )
-
+ 
     if len(rows) == 0:
-
+ 
         return (
             f"No leave request found with ID {request_id}."
         )
-
+ 
     r = rows[0]
-
-    email = EmailMessage()
-
-    email["From"] = GMAIL_ADDRESS
-    email["To"] = GMAIL_ADDRESS
-
-    email["Subject"] = (
-        f"Leave Approval Needed - Request #{request_id}"
-    )
-
-    email.set_content(
+ 
+    body = (
         f"Employee {r['employee_id']} has requested leave.\n"
         f"From {r['start_date']} to {r['end_date']} "
         f"({r['total_days']} day(s)).\n"
@@ -185,23 +177,35 @@ def notify_manager(request_id: str) -> str:
         f"set request #{request_id} to Approved or Rejected:\n"
         f"{TABLE_EDITOR_LINK}"
     )
-
-    with smtplib.SMTP_SSL(
-        "smtp.gmail.com",
-        465
-    ) as server:
-
-        server.login(
-            GMAIL_ADDRESS,
-            GMAIL_APP_PASSWORD
+ 
+    try:
+ 
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}"
+            },
+            json={
+                "from": "Leave Agent <onboarding@resend.dev>",
+                "to": [GMAIL_ADDRESS],
+                "subject": f"Leave Approval Needed - Request #{request_id}",
+                "text": body,
+            },
+            timeout=15,
         )
-
-        server.send_message(email)
-
+ 
+        response.raise_for_status()
+ 
+    except Exception as e:
+ 
+        return (
+            f"Request #{request_id} was saved, but the email to the "
+            f"manager failed: {e}"
+        )
+ 
     return (
         f"Manager has been emailed about request #{request_id}."
     )
-
 
 # =========================================================
 # 6. TOOL 4 - CHECK REQUEST STATUS
