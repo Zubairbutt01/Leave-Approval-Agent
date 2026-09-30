@@ -1,454 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>Leave Approval Agent</title>
-
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-
-            margin: 0;
-
-            font-family: Arial, sans-serif;
-
-            background: #f4f6f8;
-
-            display: flex;
-
-            justify-content: center;
-
-            align-items: center;
-
-            min-height: 100vh;
-        }
-
-
-        .container {
-
-            width: 95%;
-
-            max-width: 800px;
-
-            background: white;
-
-            border-radius: 12px;
-
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-
-            overflow: hidden;
-        }
-
-
-        .header {
-
-            background: #1f2937;
-
-            color: white;
-
-            padding: 20px;
-
-            text-align: center;
-        }
-
-
-        .header h1 {
-
-            margin: 0;
-
-            font-size: 24px;
-        }
-
-
-        .header p {
-
-            margin: 8px 0 0;
-
-            color: #d1d5db;
-        }
-
-
-        #chat {
-
-            height: 500px;
-
-            overflow-y: auto;
-
-            padding: 20px;
-
-            background: #f9fafb;
-        }
-
-
-        .message {
-
-            margin-bottom: 15px;
-
-            padding: 12px 15px;
-
-            border-radius: 10px;
-
-            max-width: 80%;
-
-            line-height: 1.5;
-
-            white-space: pre-wrap;
-        }
-
-
-        .user {
-
-            background: #2563eb;
-
-            color: white;
-
-            margin-left: auto;
-        }
-
-
-        .agent {
-
-            background: #e5e7eb;
-
-            color: #111827;
-
-            margin-right: auto;
-        }
-
-
-        .input-area {
-
-            display: flex;
-
-            gap: 10px;
-
-            padding: 15px;
-
-            border-top: 1px solid #ddd;
-
-            background: white;
-        }
-
-
-        #message {
-
-            flex: 1;
-
-            padding: 12px;
-
-            border: 1px solid #ccc;
-
-            border-radius: 8px;
-
-            font-size: 15px;
-
-            outline: none;
-        }
-
-
-        button {
-
-            padding: 12px 20px;
-
-            background: #2563eb;
-
-            color: white;
-
-            border: none;
-
-            border-radius: 8px;
-
-            cursor: pointer;
-
-            font-size: 15px;
-        }
-
-
-        button:hover {
-
-            background: #1d4ed8;
-        }
-
-
-        button:disabled {
-
-            background: #9ca3af;
-
-            cursor: not-allowed;
-        }
-
-    </style>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leave Approval Assistant</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex;
+    align-items: center; justify-content: center;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, #e0e7ff, #f8fafc);
+  }
+  .app {
+    width: 95%; max-width: 780px; height: 92vh; height: 92dvh; max-height: 760px;
+    display: flex; flex-direction: column; background: #fff;
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 10px 40px rgba(30, 58, 138, .18);
+  }
+  .header {
+    display: flex; align-items: center; gap: 14px; padding: 16px 20px;
+    background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff;
+  }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px; font-size: 22px;
+    background: rgba(255,255,255,.18); display: grid; place-items: center;
+  }
+  .title { flex: 1; }
+  .title h1 { margin: 0; font-size: 18px; }
+  .title p { margin: 3px 0 0; font-size: 12.5px; opacity: .85; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; margin-right: 5px;
+    border-radius: 50%; background: #4ade80;
+  }
+  .new-chat {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px;
+    cursor: pointer;
+  }
+  #chat {
+    flex: 1; overflow-y: auto; padding: 22px; background: #f8fafc;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row.user { flex-direction: row-reverse; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700;
+    background: #1e3a8a; color: #fff;
+  }
+  .row.user .avatar { background: #9ca3af; }
+  .bubble {
+    max-width: 75%; padding: 11px 15px; border-radius: 16px;
+    line-height: 1.55; font-size: 14.5px; white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .agent .bubble {
+    background: #fff; color: #111827; border: 1px solid #e5e7eb;
+    border-bottom-left-radius: 4px;
+  }
+  .user .bubble { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+  .time { display: block; margin-top: 5px; font-size: 11px; opacity: .55; }
+  .typing .bubble { display: flex; gap: 5px; padding: 15px; }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%; background: #9ca3af;
+    animation: bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 20px 0; background: #fff; }
+  .chip {
+    background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+    padding: 7px 13px; border-radius: 20px; font-size: 13px; cursor: pointer;
+  }
+  .input-area { display: flex; gap: 10px; padding: 14px 20px 18px; background: #fff; }
+  #message {
+    flex: 1; min-width: 0; padding: 13px 16px; border: 1px solid #d1d5db;
+    border-radius: 24px; font-size: 16px; outline: none;
+  }
+  #message:focus { border-color: #2563eb; box-shadow: 0 0 0 3px #dbeafe; }
+  #sendButton {
+    padding: 0 24px; background: #2563eb; color: #fff; border: none;
+    border-radius: 24px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  #sendButton:disabled { background: #9ca3af; cursor: not-allowed; }
+  @media (max-width: 520px) {
+    .app { width: 100%; height: 100dvh; max-height: none; border-radius: 0; }
+    .bubble { max-width: 85%; }
+  }
+</style>
 </head>
-
-
 <body>
 
-
-<div class="container">
-
-
-    <div class="header">
-
-        <h1>Leave Approval Agent</h1>
-
-        <p>Employee Leave Request Assistant</p>
-
+<div class="app">
+  <div class="header">
+    <div class="logo">🗓️</div>
+    <div class="title">
+      <h1>Leave Approval Assistant</h1>
+      <p><span class="dot"></span>Online · Annual leave: 14 days per year</p>
     </div>
+    <button class="new-chat" id="newChat">New chat</button>
+  </div>
 
+  <div id="chat"></div>
 
-    <div id="chat">
+  <div class="chips">
+    <button class="chip" data-text="I want to apply for leave">Apply for leave</button>
+    <button class="chip" data-text="I want to check my leave request status">Check request status</button>
+    <button class="chip" data-text="I want to check my leave balance">Check my balance</button>
+  </div>
 
-        <div class="message agent">
-
-            Hello! I am the Leave Approval Agent.
-
-            Please enter your Employee ID to begin.
-
-        </div>
-
-    </div>
-
-
-    <div class="input-area">
-
-        <input
-            type="text"
-            id="message"
-            placeholder="Type your message..."
-            autocomplete="off"
-        >
-
-        <button id="sendButton">
-
-            Send
-
-        </button>
-
-    </div>
-
-
+  <div class="input-area">
+    <input type="text" id="message" placeholder="Type your message..." autocomplete="off">
+    <button id="sendButton">Send</button>
+  </div>
 </div>
 
-
 <script>
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("message");
+  const sendBtn = document.getElementById("sendButton");
+  const WELCOME = "Hello! I am the Leave Approval Assistant.\nPlease enter your Employee ID to begin.";
 
+  let threadId = localStorage.getItem("leave_thread_id");
+  if (!threadId) {
+    threadId = crypto.randomUUID();
+    localStorage.setItem("leave_thread_id", threadId);
+  }
 
-    // =====================================================
-    // CREATE A UNIQUE CHAT SESSION
-    // =====================================================
+  function addMessage(text, type) {
+    const row = document.createElement("div");
+    row.className = "row " + type;
 
-    let threadId = localStorage.getItem(
-        "leave_thread_id"
-    );
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.textContent = type === "user" ? "You" : "LA";
 
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
 
-    if (!threadId) {
+    const time = document.createElement("span");
+    time.className = "time";
+    time.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    bubble.appendChild(time);
 
-        threadId = crypto.randomUUID();
+    row.append(avatar, bubble);
+    chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+  }
 
-        localStorage.setItem(
-            "leave_thread_id",
-            threadId
-        );
+  function showTyping() {
+    const row = document.createElement("div");
+    row.className = "row agent typing";
+    row.id = "typing";
+    row.innerHTML = '<div class="avatar">LA</div><div class="bubble"><span></span><span></span><span></span></div>';
+    chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function hideTyping() {
+    const t = document.getElementById("typing");
+    if (t) t.remove();
+  }
+
+  async function sendMessage(preset) {
+    const message = (typeof preset === "string" ? preset : input.value).trim();
+    if (!message || sendBtn.disabled) return;
+
+    addMessage(message, "user");
+    input.value = "";
+    sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message, thread_id: threadId })
+      });
+
+      // Read as text first, so a non-JSON server reply does not show a JSON error
+      const raw = await response.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (e) {
+        throw new Error("The server is waking up or busy. Please wait a minute and try again.");
+      }
+
+      if (!response.ok) throw new Error(data.detail || "Something went wrong.");
+
+      hideTyping();
+      addMessage(data.response, "agent");
+    } catch (error) {
+      hideTyping();
+      const msg = error.message === "Failed to fetch"
+        ? "Cannot reach the server. Please try again in a minute."
+        : error.message;
+      addMessage(msg, "agent");
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
     }
-
-
-    // =====================================================
-    // HTML ELEMENTS
-    // =====================================================
-
-    const messageInput =
-        document.getElementById("message");
-
-
-    const sendButton =
-        document.getElementById("sendButton");
-
-
-    const chat =
-        document.getElementById("chat");
-
-
-    // =====================================================
-    // ADD MESSAGE TO SCREEN
-    // =====================================================
-
-    function addMessage(
-        text,
-        type
-    ) {
-
-        const message =
-            document.createElement("div");
-
-
-        message.className =
-            "message " + type;
-
-
-        message.textContent =
-            text;
-
-
-        chat.appendChild(message);
-
-
-        chat.scrollTop =
-            chat.scrollHeight;
-    }
-
-
-    // =====================================================
-    // SEND MESSAGE
-    // =====================================================
-
-    async function sendMessage() {
-
-
-        const message =
-            messageInput.value.trim();
-
-
-        if (!message) {
-
-            return;
-        }
-
-
-        addMessage(
-            message,
-            "user"
-        );
-
-
-        messageInput.value = "";
-
-
-        sendButton.disabled = true;
-
-
-        sendButton.textContent =
-            "Sending...";
-
-
-        try {
-
-
-            const response =
-                await fetch(
-                    "/chat",
-                    {
-
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
-                            message: message,
-
-                            thread_id: threadId
-
-                        })
-
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.detail ||
-                    "Something went wrong."
-                );
-            }
-
-
-            addMessage(
-                data.response,
-                "agent"
-            );
-
-
-        }
-
-        catch (error) {
-
-
-            addMessage(
-                "Error: " + error.message,
-                "agent"
-            );
-
-        }
-
-
-        finally {
-
-            sendButton.disabled =
-                false;
-
-            sendButton.textContent =
-                "Send";
-
-            messageInput.focus();
-        }
-
-    }
-
-
-    // =====================================================
-    // BUTTON
-    // =====================================================
-
-    sendButton.addEventListener(
-        "click",
-        sendMessage
-    );
-
-
-    // =====================================================
-    // ENTER KEY
-    // =====================================================
-
-    messageInput.addEventListener(
-        "keydown",
-        function(event) {
-
-            if (
-                event.key === "Enter"
-            ) {
-
-                sendMessage();
-
-            }
-
-        }
-    );
-
-
+  }
+
+  function newChat() {
+    threadId = crypto.randomUUID();
+    localStorage.setItem("leave_thread_id", threadId);
+    chat.innerHTML = "";
+    addMessage(WELCOME, "agent");
+    input.focus();
+  }
+
+  sendBtn.addEventListener("click", () => sendMessage());
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+  document.getElementById("newChat").addEventListener("click", newChat);
+  document.querySelectorAll(".chip").forEach((c) =>
+    c.addEventListener("click", () => sendMessage(c.dataset.text))
+  );
+
+  addMessage(WELCOME, "agent");
+  input.focus();
 </script>
 
-
 </body>
-
 </html>

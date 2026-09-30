@@ -1,5 +1,8 @@
 import os
 import smtplib
+import hmac
+import hashlib
+from html import escape
 from datetime import date
 import httpx
 
@@ -27,6 +30,10 @@ GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
+APPROVAL_SECRET = os.getenv("APPROVAL_SECRET")
+BASE_URL = (os.getenv("BASE_URL") or "http://127.0.0.1:8000").rstrip("/")
+
+
 # =========================================================
 # 2. CONNECT TO SUPABASE
 # =========================================================
@@ -42,6 +49,25 @@ PROJECT_ID = SUPABASE_URL.split("//")[1].split(".")[0]
 TABLE_EDITOR_LINK = (
     f"https://supabase.com/dashboard/project/{PROJECT_ID}/editor"
 )
+
+
+# =========================================================
+# HELPER - SECRET CODE FOR APPROVE / REJECT LINKS
+# =========================================================
+
+def make_token(request_id, action):
+
+    if not APPROVAL_SECRET:
+
+        raise ValueError("APPROVAL_SECRET is not set")
+
+    message = f"{int(request_id)}:{action}".encode()
+
+    return hmac.new(
+        APPROVAL_SECRET.encode(),
+        message,
+        hashlib.sha256
+    ).hexdigest()
 
 
 # =========================================================
@@ -106,6 +132,7 @@ def check_leave_balance(
 # 4. TOOL 2 - CREATE LEAVE REQUEST
 # =========================================================
 
+
 @tool
 def create_leave_request(
     employee_id: str,
@@ -118,20 +145,65 @@ def create_leave_request(
     """
     Save a new leave request as Pending.
     The database automatically takes these days off the balance.
+    Dates must be real dates in YYYY-MM-DD format.
     """
 
-    result = (
-        supabase
-        .table("leave_requests")
-        .insert({
-            "employee_id": employee_id,
-            "start_date": start_date,
-            "end_date": end_date,
-            "total_days": total_days,
-            "reason": reason,
-        })
-        .execute()
-    )
+    # --- 1. Check that the dates are real dates ---
+    try:
+
+        start = date.fromisoformat(start_date)
+        end = date.fromisoformat(end_date)
+
+    except ValueError:
+
+        return (
+            "Invalid date. Dates must be real dates in YYYY-MM-DD "
+            "format. Ask the employee to check the dates."
+        )
+
+    # --- 2. Check the order and the past ---
+    if end < start:
+
+        return (
+            "End date cannot be before start date. "
+            "Ask the employee for correct dates."
+        )
+
+    if start < date.today():
+
+        return (
+            "The start date is in the past. "
+            "Ask the employee for a future date."
+        )
+
+    # --- 3. Work out the days in code (do not trust the AI's number) ---
+    real_days = (end - start).days + 1
+
+    # --- 4. Save, and never let a database error crash the request ---
+    try:
+
+        result = (
+            supabase
+            .table("leave_requests")
+            .insert({
+                "employee_id": employee_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "total_days": real_days,
+                "reason": reason,
+            })
+            .execute()
+        )
+
+    except Exception as e:
+
+        # Shows the real reason in the Render Logs
+        print("CREATE REQUEST ERROR:", repr(e))
+
+        return (
+            "The request could not be saved. Ask the employee to "
+            "check the details and try again."
+        )
 
     return (
         f"Request created. "
@@ -146,11 +218,12 @@ def create_leave_request(
 
 @tool
 def notify_manager(request_id: str) -> str:
- 
+
     """
     Email the manager about a new leave request.
+    The email has Approve and Reject buttons.
     """
- 
+
     rows = (
         supabase
         .table("leave_requests")
@@ -159,27 +232,65 @@ def notify_manager(request_id: str) -> str:
         .execute()
         .data
     )
- 
+
     if len(rows) == 0:
- 
+
         return (
             f"No leave request found with ID {request_id}."
         )
- 
+
     r = rows[0]
- 
-    body = (
-        f"Employee {r['employee_id']} has requested leave.\n"
-        f"From {r['start_date']} to {r['end_date']} "
-        f"({r['total_days']} day(s)).\n"
-        f"Reason: {r['reason']}\n\n"
-        f"Open the Supabase leave_requests table and "
-        f"set request #{request_id} to Approved or Rejected:\n"
-        f"{TABLE_EDITOR_LINK}"
-    )
- 
+
     try:
- 
+
+        base = f"{BASE_URL}/decision?request_id={request_id}"
+
+        approve_url = (
+            f"{base}&action=approve"
+            f"&token={make_token(request_id, 'approve')}"
+        )
+
+        reject_url = (
+            f"{base}&action=reject"
+            f"&token={make_token(request_id, 'reject')}"
+        )
+
+        text = (
+            f"Employee {r['employee_id']} requested leave "
+            f"from {r['start_date']} to {r['end_date']} "
+            f"({r['total_days']} day(s)).\n"
+            f"Reason: {r['reason']}\n\n"
+            f"Approve: {approve_url}\n"
+            f"Reject: {reject_url}"
+        )
+
+        html_body = f"""
+        <div style="font-family:Arial,sans-serif;max-width:520px;
+                    margin:auto;border:1px solid #e5e7eb;
+                    border-radius:10px;overflow:hidden">
+          <div style="background:#1e3a8a;color:#fff;padding:16px 20px">
+            <h2 style="margin:0">Leave Approval Needed</h2>
+            <div style="opacity:.8">Request #{request_id}</div>
+          </div>
+          <div style="padding:20px;color:#111827;line-height:1.7">
+            <b>Employee:</b> {escape(str(r['employee_id']))}<br>
+            <b>From:</b> {r['start_date']} &nbsp; <b>To:</b> {r['end_date']}<br>
+            <b>Days:</b> {r['total_days']}<br>
+            <b>Reason:</b> {escape(str(r['reason']))}
+            <div style="margin-top:22px">
+              <a href="{approve_url}"
+                 style="background:#16a34a;color:#fff;padding:12px 26px;
+                        border-radius:8px;text-decoration:none;
+                        font-weight:bold;margin-right:10px">Approve</a>
+              <a href="{reject_url}"
+                 style="background:#dc2626;color:#fff;padding:12px 26px;
+                        border-radius:8px;text-decoration:none;
+                        font-weight:bold">Reject</a>
+            </div>
+          </div>
+        </div>
+        """
+
         response = httpx.post(
             "https://api.resend.com/emails",
             headers={
@@ -189,23 +300,25 @@ def notify_manager(request_id: str) -> str:
                 "from": "Leave Agent <onboarding@resend.dev>",
                 "to": [GMAIL_ADDRESS],
                 "subject": f"Leave Approval Needed - Request #{request_id}",
-                "text": body,
+                "text": text,
+                "html": html_body,
             },
             timeout=15,
         )
- 
+
         response.raise_for_status()
- 
+
     except Exception as e:
- 
+
         return (
             f"Request #{request_id} was saved, but the email to the "
             f"manager failed: {e}"
         )
- 
+
     return (
         f"Manager has been emailed about request #{request_id}."
     )
+
 
 # =========================================================
 # 6. TOOL 4 - CHECK REQUEST STATUS
