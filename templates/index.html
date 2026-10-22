@@ -2,175 +2,931 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Leave Approval Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0F2238">
+<meta name="description" content="Request leave in a conversation and get your manager's decision by email.">
+<title>LeaveFlow | Leave Approval Assistant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F2238'/%3E%3Crect x='7' y='9' width='18' height='16' rx='2.5' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='M7 14h18M12 7v4M20 7v4' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+
+<!-- Fonts. If they cannot load, the page falls back to Georgia and the system font. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-  * { box-sizing: border-box; }
+  /* =====================================================
+     1. DESIGN TOKENS (colors, fonts, sizes)
+     Change a color here and it changes everywhere.
+     ===================================================== */
+  :root {
+    --ink: #0F2238;          /* dark navy: headings and dark sections */
+    --text: #1F2F42;         /* body text */
+    --muted: #55657A;        /* secondary text */
+    --line: #D9E1EA;         /* thin borders */
+    --paper: #FFFFFF;        /* cards and panels */
+    --wash: #F3F6FA;         /* soft page background */
+    --accent: #1F4E8C;       /* buttons and links */
+    --accent-dark: #173F73;  /* button hover */
+    --accent-soft: #E8EFF8;  /* soft highlight */
+    --ok: #1E7B50;           /* approved */
+    --ok-soft: #E6F4EC;
+    --warn: #8A5300;         /* pending */
+    --warn-soft: #FFF3D9;
+
+    --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+    --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+    --radius: 12px;
+    --header-height: 68px;
+  }
+
+  /* =====================================================
+     2. BASE
+     ===================================================== */
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  html { color-scheme: light; scroll-behavior: smooth; scroll-padding-top: 88px; }
   body {
-    margin: 0; min-height: 100vh; display: flex;
-    align-items: center; justify-content: center;
-    font-family: "Segoe UI", Roboto, Arial, sans-serif;
-    background: linear-gradient(135deg, #e0e7ff, #f8fafc);
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
   }
-  .app {
-    width: 95%; max-width: 780px; height: 92vh; height: 92dvh; max-height: 760px;
-    display: flex; flex-direction: column; background: #fff;
-    border-radius: 16px; overflow: hidden;
-    box-shadow: 0 10px 40px rgba(30, 58, 138, .18);
+  body.in-portal { overflow: hidden; }   /* the portal scrolls inside itself */
+
+  h1, h2, h3, p, ul, ol, dl, dd { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  svg { display: block; }
+
+  :focus-visible { outline: 3px solid rgba(31, 78, 140, .45); outline-offset: 2px; }
+
+  .skip-link {
+    position: absolute; left: 16px; top: -60px; z-index: 100;
+    background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 8px;
+    text-decoration: none; font-weight: 600;
   }
-  .header {
-    display: flex; align-items: center; gap: 14px; padding: 16px 20px;
-    background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff;
+  .skip-link:focus { top: 12px; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* =====================================================
+     3. BUTTONS
+     ===================================================== */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 13px 22px; border-radius: 10px; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff; font-weight: 600; font-size: .9375rem;
+    text-decoration: none; transition: background .15s, border-color .15s;
   }
-  .logo {
-    width: 44px; height: 44px; border-radius: 12px; font-size: 22px;
-    background: rgba(255,255,255,.18); display: grid; place-items: center;
+  .btn:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn svg { width: 18px; height: 18px; }
+  .btn--outline { background: transparent; color: var(--ink); border-color: #B7C3D1; }
+  .btn--outline:hover { background: var(--wash); border-color: var(--ink); }
+  .btn--small { padding: 9px 16px; font-size: .875rem; }
+
+  /* =====================================================
+     4. LANDING PAGE
+     ===================================================== */
+
+  /* ---- Header ---- */
+  .site-header {
+    position: sticky; top: 0; z-index: 30; height: var(--header-height);
+    background: rgba(255, 255, 255, .95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
   }
-  .title { flex: 1; }
-  .title h1 { margin: 0; font-size: 18px; }
-  .title p { margin: 3px 0 0; font-size: 12.5px; opacity: .85; }
-  .dot {
-    display: inline-block; width: 8px; height: 8px; margin-right: 5px;
-    border-radius: 50%; background: #4ade80;
+  .site-header .wrap { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+
+  .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); background: none; border: 0; padding: 0; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--ink); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .brand-mark svg { width: 20px; height: 20px; }
+  .brand-name { font-weight: 700; font-size: 1.0625rem; letter-spacing: -.01em; }
+
+  .site-nav { display: flex; align-items: center; gap: 28px; }
+  .site-nav a.nav-link { color: var(--muted); text-decoration: none; font-size: .9375rem; font-weight: 500; }
+  .site-nav a.nav-link:hover { color: var(--ink); }
+
+  /* ---- Hero ---- */
+  .hero { padding: 84px 0 88px; background: linear-gradient(180deg, var(--wash) 0%, var(--paper) 100%); }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 72px; align-items: center; }
+  .hero h1 {
+    font-family: var(--font-display); font-weight: 500; color: var(--ink);
+    font-size: clamp(2.4rem, 5vw, 3.75rem); line-height: 1.08; letter-spacing: -.02em;
+    max-width: 14em;
   }
-  .new-chat {
-    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
-    color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px;
-    cursor: pointer;
+  .hero-lead { margin-top: 24px; max-width: 34em; font-size: 1.1875rem; line-height: 1.65; color: var(--muted); }
+  .hero-actions { margin-top: 36px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .hero-note { margin-top: 22px; font-size: .875rem; color: var(--muted); }
+
+  /* Example request card (the one memorable element of the page) */
+  .request-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
+    padding: 28px; box-shadow: 0 30px 60px -30px rgba(15, 34, 56, .28);
   }
-  #chat {
-    flex: 1; overflow-y: auto; padding: 22px; background: #f8fafc;
-    display: flex; flex-direction: column; gap: 14px;
+  .rc-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .rc-caption { font-size: .8125rem; color: var(--muted); }
+  .rc-title { margin-top: 18px; font-family: var(--font-display); font-weight: 500; font-size: 1.625rem; color: var(--ink); line-height: 1.2; }
+  .rc-dates { margin-top: 4px; color: var(--muted); font-size: .9375rem; }
+
+  .badge-swap { display: grid; }
+  .badge-swap > * { grid-area: 1 / 1; justify-self: end; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
+    font-size: .8125rem; font-weight: 600; white-space: nowrap;
   }
-  .row { display: flex; gap: 10px; align-items: flex-end; }
-  .row.user { flex-direction: row-reverse; }
-  .avatar {
-    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 11px; font-weight: 700;
-    background: #1e3a8a; color: #fff;
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge--ok { background: var(--ok-soft); color: var(--ok); }
+  .badge--pending { background: var(--warn-soft); color: var(--warn); opacity: 0; }
+
+  .rc-steps { margin-top: 26px; display: flex; flex-direction: column; }
+  .rc-step { position: relative; display: flex; gap: 14px; padding-bottom: 22px; }
+  .rc-step:last-child { padding-bottom: 0; }
+  .rc-step:not(:last-child)::before {
+    content: ""; position: absolute; left: 13px; top: 28px; bottom: 2px; width: 2px; background: var(--line);
   }
-  .row.user .avatar { background: #9ca3af; }
+  .rc-dot {
+    width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center;
+    background: var(--ok); border: 2px solid var(--ok); color: #fff;
+  }
+  .rc-dot svg { width: 14px; height: 14px; }
+  .rc-step strong { display: block; font-size: .9375rem; color: var(--ink); line-height: 1.35; }
+  .rc-step span.sub { display: block; font-size: .8125rem; color: var(--muted); margin-top: 2px; }
+
+  .rc-foot { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .rc-foot dt { font-size: .8125rem; color: var(--muted); }
+  .rc-foot dd { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; color: var(--ink); line-height: 1.2; }
+
+  /* The one animation on the page: the example request moves through its steps, once. */
+  @media (prefers-reduced-motion: no-preference) {
+    .rc-step { animation: stepIn .5s ease both; animation-delay: calc(var(--i) * .85s + .35s); }
+    .rc-step .rc-dot { animation: dotIn .4s ease both; animation-delay: calc(var(--i) * .85s + .5s); }
+    .badge--pending { animation: fadeOut .4s ease 2.6s both; }
+    .badge--ok { animation: fadeIn .4s ease 2.6s both; }
+  }
+  @keyframes stepIn { from { opacity: .3; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @keyframes dotIn { from { background: #fff; border-color: #C3CEDA; color: transparent; } to { background: var(--ok); border-color: var(--ok); color: #fff; } }
+  @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---- Sections ---- */
+  .section { padding: 96px 0; }
+  .section--wash { background: var(--wash); }
+  .section-head { max-width: 40em; margin-bottom: 52px; }
+  .section h2, .final-cta h2 {
+    font-family: var(--font-display); font-weight: 500; color: var(--ink);
+    font-size: clamp(1.75rem, 3.2vw, 2.4rem); line-height: 1.15; letter-spacing: -.015em;
+  }
+  .section-lead { margin-top: 14px; font-size: 1.0625rem; color: var(--muted); max-width: 36em; }
+
+  /* What it does: three columns separated by thin lines */
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .feature { padding: 4px 36px 4px 0; }
+  .feature + .feature { padding-left: 36px; border-left: 1px solid var(--line); }
+  .feature-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 20px; }
+  .feature-icon svg { width: 22px; height: 22px; }
+  .feature h3 { font-size: 1.125rem; font-weight: 650; color: var(--ink); line-height: 1.3; }
+  .feature p { margin-top: 10px; color: var(--muted); }
+
+  /* How it works: a real sequence, so the steps are numbered */
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; counter-reset: step; }
+  .step { position: relative; counter-increment: step; }
+  .step::before {
+    content: counter(step); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--paper); border: 2px solid var(--accent); color: var(--accent);
+    font-weight: 700; margin-bottom: 20px; position: relative; z-index: 1;
+  }
+  .step:not(:last-child)::after {
+    content: ""; position: absolute; top: 19px; left: 52px; right: -20px; height: 2px; background: var(--line);
+  }
+  .step h3 { font-size: 1.0625rem; font-weight: 650; color: var(--ink); line-height: 1.3; }
+  .step p { margin-top: 8px; color: var(--muted); font-size: .9375rem; }
+
+  /* Email notification band (dark) */
+  .section--dark { background: var(--ink); color: #E5ECF4; }
+  .section--dark h2 { color: #fff; }
+  .section--dark .section-lead { color: #B3C1D2; }
+  .notify-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; align-items: center; }
+  .checks { margin-top: 30px; display: flex; flex-direction: column; gap: 16px; }
+  .checks li { display: flex; gap: 14px; color: #E5ECF4; }
+  .checks svg { width: 22px; height: 22px; flex-shrink: 0; color: #7FD1A6; margin-top: 2px; }
+
+  .email-preview { background: var(--paper); color: var(--text); border-radius: 14px; overflow: hidden; box-shadow: 0 30px 60px -28px rgba(0, 0, 0, .55); }
+  .email-meta { padding: 16px 22px; border-bottom: 1px solid var(--line); font-size: .875rem; color: var(--muted); }
+  .email-meta strong { color: var(--ink); font-weight: 600; }
+  .email-banner { background: var(--ok); color: #fff; padding: 18px 22px; }
+  .email-banner h3 { font-size: 1.25rem; font-weight: 650; line-height: 1.3; }
+  .email-banner p { font-size: .875rem; opacity: .9; }
+  .email-body { padding: 22px; line-height: 1.75; font-size: .9375rem; }
+  .email-body .email-caption { margin-top: 18px; font-size: .8125rem; color: var(--muted); }
+
+  /* Good to know: a plain list of facts */
+  .facts-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 72px; align-items: start; }
+  .facts { border-top: 1px solid var(--line); }
+  .fact { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+  .fact dt { font-weight: 650; color: var(--ink); }
+  .fact dd { color: var(--muted); }
+
+  /* FAQ */
+  .faq { max-width: 780px; border-top: 1px solid var(--line); }
+  .faq details { border-bottom: 1px solid var(--line); }
+  .faq summary {
+    list-style: none; cursor: pointer; padding: 22px 48px 22px 0; position: relative;
+    font-size: 1.0625rem; font-weight: 600; color: var(--ink); line-height: 1.4;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    font-size: 1.5rem; font-weight: 400; color: var(--accent); line-height: 1;
+  }
+  .faq details[open] summary::after { content: "\2013"; }
+  .faq .answer { padding: 0 48px 24px 0; color: var(--muted); max-width: 40em; }
+
+  /* Closing call to action */
+  .final-cta { background: var(--accent-soft); padding: 72px 0; }
+  .final-cta .wrap { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+  .final-cta p { margin-top: 10px; color: var(--muted); max-width: 32em; }
+
+  /* Footer */
+  .site-footer { padding: 36px 0 110px; border-top: 1px solid var(--line); color: var(--muted); font-size: .875rem; }
+  .site-footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  /* Floating chat button */
+  .chat-fab {
+    position: fixed; right: 24px; bottom: 24px; z-index: 40; display: inline-flex; align-items: center; gap: 10px;
+    padding: 15px 22px 15px 18px; border: 0; border-radius: 999px; background: var(--ink); color: #fff;
+    font-weight: 600; font-size: .9375rem; box-shadow: 0 14px 32px -10px rgba(15, 34, 56, .6);
+    transition: background .15s;
+  }
+  .chat-fab:hover { background: var(--accent); }
+  .chat-fab svg { width: 22px; height: 22px; }
+
+  /* =====================================================
+     5. ASSISTANT PORTAL
+     ===================================================== */
+  .portal {
+    display: grid; grid-template-columns: 292px minmax(0, 1fr);
+    height: 100vh; height: 100dvh; background: var(--wash);
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    background: var(--paper); border-right: 1px solid var(--line); padding: 22px 16px 18px;
+    display: flex; flex-direction: column; gap: 28px; overflow-y: auto;
+  }
+  .sidebar .brand { padding: 0 8px; cursor: pointer; }
+  .side-title { padding: 0 10px; margin-bottom: 10px; font-size: .8125rem; font-weight: 600; color: var(--muted); }
+  .side-nav { display: flex; flex-direction: column; gap: 6px; }
+  .side-button {
+    display: flex; align-items: flex-start; gap: 14px; width: 100%; text-align: left;
+    padding: 13px 12px; border-radius: 10px; border: 1px solid transparent; background: transparent;
+    transition: background .15s, border-color .15s;
+  }
+  .side-button:hover { background: var(--wash); }
+  .side-button[aria-current="true"] { background: var(--accent-soft); border-color: #CFDDF0; }
+  .side-icon { width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px; background: var(--wash); color: var(--accent); display: grid; place-items: center; }
+  .side-button[aria-current="true"] .side-icon { background: var(--paper); }
+  .side-icon svg { width: 20px; height: 20px; }
+  .side-label { display: block; font-weight: 600; color: var(--ink); font-size: .9375rem; line-height: 1.3; }
+  .side-sub { display: block; margin-top: 2px; font-size: .8125rem; color: var(--muted); line-height: 1.4; }
+
+  .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 18px; }
+  .know { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: #FAFBFD; }
+  .know h2 { font-size: .9375rem; font-weight: 650; color: var(--ink); margin-bottom: 12px; }
+  .know li { display: flex; gap: 10px; font-size: .8125rem; color: var(--muted); line-height: 1.5; }
+  .know li + li { margin-top: 10px; }
+  .know svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--ok); margin-top: 2px; }
+  .home-link { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: none; border: 0; color: var(--muted); font-size: .875rem; font-weight: 500; border-radius: 8px; }
+  .home-link:hover { color: var(--ink); background: var(--wash); }
+  .home-link svg { width: 16px; height: 16px; }
+
+  /* ---- Chat area ---- */
+  .chat-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--wash); }
+  .chat-header {
+    flex-shrink: 0; height: 72px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--paper); border-bottom: 1px solid var(--line);
+  }
+  .chat-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .avatar { width: 38px; height: 38px; border-radius: 11px; background: var(--ink); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .avatar svg { width: 20px; height: 20px; }
+  .chat-title h1 { font-size: 1.0625rem; font-weight: 650; color: var(--ink); line-height: 1.25; }
+  .chat-status { display: flex; align-items: center; gap: 7px; font-size: .8125rem; color: var(--muted); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #2FA36B; flex-shrink: 0; }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .mobile-home { display: none; }
+
+  .chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 32px 28px 16px; scroll-behavior: smooth; }
+  .chat-thread { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  .row { display: flex; align-items: flex-start; gap: 12px; }
+  .row.user { justify-content: flex-end; }
+  .row .avatar { width: 34px; height: 34px; border-radius: 10px; margin-top: 2px; }
+  .row .avatar svg { width: 18px; height: 18px; }
+  .stack { max-width: min(80%, 600px); display: flex; flex-direction: column; }
+  .row.user .stack { align-items: flex-end; }
   .bubble {
-    max-width: 75%; padding: 11px 15px; border-radius: 16px;
-    line-height: 1.55; font-size: 14.5px; white-space: pre-wrap;
-    word-wrap: break-word;
+    padding: 14px 18px; border-radius: 4px 16px 16px 16px; background: var(--paper); border: 1px solid var(--line);
+    color: var(--text); font-size: 1rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere;
   }
-  .agent .bubble {
-    background: #fff; color: #111827; border: 1px solid #e5e7eb;
-    border-bottom-left-radius: 4px;
+  .bubble strong { color: var(--ink); font-weight: 650; }
+  .row.user .bubble { background: var(--accent); border-color: var(--accent); color: #fff; border-radius: 16px 4px 16px 16px; }
+  .time { margin-top: 6px; font-size: .75rem; color: var(--muted); }
+
+  .typing .bubble { display: flex; align-items: center; gap: 6px; min-height: 52px; }
+  .typing .bubble span { width: 7px; height: 7px; border-radius: 50%; background: #8A99AD; animation: bounce 1.15s infinite; }
+  .typing .bubble span:nth-child(2) { animation-delay: .16s; }
+  .typing .bubble span:nth-child(3) { animation-delay: .32s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+  /* ---- Composer ---- */
+  .composer-area { flex-shrink: 0; padding: 8px 28px 20px; }
+  .composer-inner { max-width: 760px; margin: 0 auto; }
+  .chips { display: none; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; }
+  .chip { padding: 8px 14px; border-radius: 999px; border: 1px solid #C5D3E6; background: var(--paper); color: var(--accent); font-size: .875rem; font-weight: 600; }
+  .chip:hover { background: var(--accent-soft); }
+
+  .composer {
+    display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; background: var(--paper);
+    border: 1px solid #B7C3D1; border-radius: 14px; transition: border-color .15s, box-shadow .15s;
   }
-  .user .bubble { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
-  .time { display: block; margin-top: 5px; font-size: 11px; opacity: .55; }
-  .typing .bubble { display: flex; gap: 5px; padding: 15px; }
-  .typing span {
-    width: 7px; height: 7px; border-radius: 50%; background: #9ca3af;
-    animation: bounce 1.2s infinite;
-  }
-  .typing span:nth-child(2) { animation-delay: .2s; }
-  .typing span:nth-child(3) { animation-delay: .4s; }
-  @keyframes bounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-6px); }
-  }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 20px 0; background: #fff; }
-  .chip {
-    background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
-    padding: 7px 13px; border-radius: 20px; font-size: 13px; cursor: pointer;
-  }
-  .input-area { display: flex; gap: 10px; padding: 14px 20px 18px; background: #fff; }
-  #message {
-    flex: 1; min-width: 0; padding: 13px 16px; border: 1px solid #d1d5db;
-    border-radius: 24px; font-size: 16px; outline: none;
-  }
-  #message:focus { border-color: #2563eb; box-shadow: 0 0 0 3px #dbeafe; }
+  .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(31, 78, 140, .14); }
+  #message { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; padding: 10px 0; font-size: 1rem; color: var(--text); }
+  #message::placeholder { color: #7A889B; }
   #sendButton {
-    padding: 0 24px; background: #2563eb; color: #fff; border: none;
-    border-radius: 24px; font-size: 15px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border: 0; border-radius: 10px;
+    background: var(--accent); color: #fff; font-weight: 600; font-size: .9375rem; transition: background .15s;
   }
-  #sendButton:disabled { background: #9ca3af; cursor: not-allowed; }
-  @media (max-width: 520px) {
-    .app { width: 100%; height: 100dvh; max-height: none; border-radius: 0; }
-    .bubble { max-width: 85%; }
+  #sendButton:hover { background: var(--accent-dark); }
+  #sendButton:disabled { background: #9FB0C6; cursor: not-allowed; }
+  #sendButton svg { width: 18px; height: 18px; }
+  .footnote { margin-top: 12px; text-align: center; font-size: .8125rem; color: var(--muted); }
+
+  /* =====================================================
+     6. SMALL SCREENS
+     ===================================================== */
+  @media (max-width: 960px) {
+    .hero { padding: 56px 0 64px; }
+    .hero-grid, .notify-grid, .facts-grid { grid-template-columns: minmax(0, 1fr); gap: 48px; }
+    .features { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+    .feature, .feature + .feature { padding: 0; border-left: 0; }
+    .feature + .feature { padding-top: 36px; border-top: 1px solid var(--line); }
+    .steps { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .step { padding: 0 0 32px 60px; }
+    .step::before { position: absolute; left: 0; top: 0; margin: 0; }
+    .step:not(:last-child)::after { top: 44px; bottom: 4px; left: 19px; right: auto; width: 2px; height: auto; }
+    .section { padding: 72px 0; }
+
+    /* Portal: the sidebar is hidden, the quick buttons appear above the message box */
+    .portal { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { display: none; }
+    .chips { display: flex; }
+    .mobile-home { display: inline-flex; }
+    .chat-header { padding: 0 16px; }
+    .chat-scroll { padding: 24px 16px 8px; }
+    .composer-area { padding: 8px 16px 14px; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 18px; }
+    .site-nav a.nav-link { display: none; }
+    .hero-actions .btn { width: 100%; }
+    .request-card { padding: 22px; }
+    .fact { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .final-cta .btn { width: 100%; }
+    .chat-fab { right: 16px; bottom: 16px; padding: 15px; }
+    .chat-fab .fab-label { display: none; }
+    .stack { max-width: 88%; }
+    #sendButton .send-label { display: none; }
+    #sendButton { padding: 11px 14px; }
   }
 </style>
 </head>
+
 <body>
+<noscript>This page needs JavaScript to chat with the assistant. Please turn JavaScript on and reload.</noscript>
 
-<div class="app">
-  <div class="header">
-    <div class="logo">🗓️</div>
-    <div class="title">
-      <h1>Leave Approval Assistant</h1>
-      <p><span class="dot"></span>Online · Annual leave: 14 days per year</p>
+<!-- =====================================================
+     LANDING PAGE
+     ===================================================== -->
+<div id="landing">
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="#top" aria-label="LeaveFlow home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14h3m-3 3h7"/></svg>
+        </span>
+        <span class="brand-name">LeaveFlow</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a class="nav-link" href="#features">What it does</a>
+        <a class="nav-link" href="#how-it-works">How it works</a>
+        <a class="nav-link" href="#faq">FAQ</a>
+        <button class="btn btn--small" type="button" data-open-chat>Start conversation</button>
+      </nav>
     </div>
-    <button class="new-chat" id="newChat">New chat</button>
-  </div>
+  </header>
 
-  <div id="chat"></div>
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" id="top">
+      <div class="wrap hero-grid">
+        <div>
+          <h1>Request leave in a conversation. Get the decision by email.</h1>
+          <p class="hero-lead">Tell the assistant your Employee ID and the dates you need. Your manager reviews the request, and you hear back by email, whether it is approved or rejected.</p>
+          <div class="hero-actions">
+            <button class="btn" type="button" data-open-chat>
+              Start conversation
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            </button>
+            <a class="btn btn--outline" href="#how-it-works">See how it works</a>
+          </div>
+          <p class="hero-note">Have your Employee ID ready, for example E001.</p>
+        </div>
 
-  <div class="chips">
-    <button class="chip" data-text="I want to apply for leave">Apply for leave</button>
-    <button class="chip" data-text="I want to check my leave request status">Check request status</button>
-    <button class="chip" data-text="I want to check my leave balance">Check my balance</button>
-  </div>
+        <!-- Example request card: shows what the employee will see -->
+        <div class="request-card" role="img" aria-label="Example: leave request number 1042 was sent, reviewed by the manager, and the decision was emailed. Status: approved.">
+          <div class="rc-top">
+            <span class="rc-caption">Example request</span>
+            <span class="badge-swap">
+              <span class="badge badge--pending">Pending</span>
+              <span class="badge badge--ok">Approved</span>
+            </span>
+          </div>
+          <div class="rc-title">Request #1042</div>
+          <div class="rc-dates">2 Nov to 4 Nov, 3 days</div>
 
-  <div class="input-area">
-    <input type="text" id="message" placeholder="Type your message..." autocomplete="off">
-    <button id="sendButton">Send</button>
-  </div>
+          <ol class="rc-steps">
+            <li class="rc-step" style="--i:0">
+              <span class="rc-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>
+              <div><strong>Request sent</strong><span class="sub">Your manager received it by email</span></div>
+            </li>
+            <li class="rc-step" style="--i:1">
+              <span class="rc-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>
+              <div><strong>Manager decided</strong><span class="sub">Approved with one click</span></div>
+            </li>
+            <li class="rc-step" style="--i:2">
+              <span class="rc-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>
+              <div><strong>Decision emailed to you</strong><span class="sub">With your dates and remaining balance</span></div>
+            </li>
+          </ol>
+
+          <dl class="rc-foot">
+            <div><dt>Days requested</dt><dd>3</dd></div>
+            <div><dt>Days left this year</dt><dd>11</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- What the assistant can do -->
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>What the assistant can do for you</h2>
+          <p class="section-lead">Everything about your leave in one place. Ask in plain words, and the assistant guides you through it.</p>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16M12 13v5m-2.5-2.5h5"/></svg></div>
+            <h3>Request leave</h3>
+            <p>Share your start date, end date, and a short reason. The assistant checks your balance first, then sends the request to your manager.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <h3>Check your leave balance</h3>
+            <p>See how many of your 14 annual leave days are left. Pending and approved requests are already taken off.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h9"/></svg></div>
+            <h3>Track a request</h3>
+            <p>Ask for the status of a request with its number. You will see if it is still pending, approved, or rejected.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section section--wash" id="how-it-works">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>How it works</h2>
+          <p class="section-lead">Four steps from your first message to the decision in your inbox.</p>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <h3>Start a conversation</h3>
+            <p>Open the assistant and enter your Employee ID.</p>
+          </li>
+          <li class="step">
+            <h3>Share your dates and reason</h3>
+            <p>Give the first day, the last day, and a short reason for your leave.</p>
+          </li>
+          <li class="step">
+            <h3>Your manager decides</h3>
+            <p>The request goes to your manager by email. They approve or reject it with one click.</p>
+          </li>
+          <li class="step">
+            <h3>You get an email</h3>
+            <p>The decision arrives in your inbox with your dates and remaining balance.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Email notification -->
+    <section class="section section--dark" id="notifications">
+      <div class="wrap notify-grid">
+        <div>
+          <h2>You will be notified when your manager decides</h2>
+          <p class="section-lead">You do not need to come back and ask. As soon as your manager approves or rejects your request, the assistant sends you an email.</p>
+          <ul class="checks">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+              <span>You get an email whether the request is approved or rejected.</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+              <span>The email goes to the address saved in your employee record.</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+              <span>You can still ask the assistant for the status at any time.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="email-preview" role="img" aria-label="Example email: Your leave request number 1042 was approved, 2 November to 4 November, 3 days, remaining balance 11 days.">
+          <div class="email-meta"><strong>Subject:</strong> Your leave request #1042 was Approved</div>
+          <div class="email-banner">
+            <h3>Leave request Approved</h3>
+            <p>Request #1042</p>
+          </div>
+          <div class="email-body">
+            Hello Ali,<br>
+            Your leave request was <strong>Approved</strong>.<br><br>
+            <strong>From:</strong> 2 Nov &nbsp; <strong>To:</strong> 4 Nov<br>
+            <strong>Days:</strong> 3<br>
+            <strong>Remaining balance:</strong> 11 day(s)
+            <p class="email-caption">Example email</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Good to know -->
+    <section class="section">
+      <div class="wrap facts-grid">
+        <div>
+          <h2>Good to know before you start</h2>
+          <p class="section-lead">A few simple rules, so your request goes through the first time.</p>
+        </div>
+        <dl class="facts">
+          <div class="fact"><dt>Employee ID</dt><dd>Use the ID assigned to you, for example E001.</dd></div>
+          <div class="fact"><dt>Annual leave</dt><dd>Every employee has 14 days of annual leave per year.</dd></div>
+          <div class="fact"><dt>Start date</dt><dd>Leave can start today or later. Dates in the past are not accepted.</dd></div>
+          <div class="fact"><dt>Balance</dt><dd>You cannot request more days than you have left.</dd></div>
+          <div class="fact"><dt>Who decides</dt><dd>Only your manager approves or rejects leave. The assistant never decides.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section section--wash" id="faq">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Who approves my leave?</summary>
+            <p class="answer">Your manager. The assistant collects your request and sends it on, but it never approves or rejects leave itself.</p>
+          </details>
+          <details>
+            <summary>How will I know the decision?</summary>
+            <p class="answer">You will get an email as soon as your manager decides. You can also ask the assistant for the status at any time, using your request number.</p>
+          </details>
+          <details>
+            <summary>I did not get the email. What should I do?</summary>
+            <p class="answer">Check your spam or junk folder first. Then ask the assistant for the status of your request number. If the email address in your employee record is wrong, ask your administrator to correct it.</p>
+          </details>
+          <details>
+            <summary>Can I request more days than I have left?</summary>
+            <p class="answer">No. The assistant checks your balance before it creates a request, and tells you how many days you have left.</p>
+          </details>
+          <details>
+            <summary>What can the assistant not do?</summary>
+            <p class="answer">It only helps with leave requests. It cannot answer other questions, and it cannot change a decision your manager has made.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing call to action -->
+    <section class="final-cta">
+      <div class="wrap">
+        <div>
+          <h2>Ready to request leave?</h2>
+          <p>It takes about a minute. Have your Employee ID ready.</p>
+        </div>
+        <button class="btn" type="button" data-open-chat>
+          Start conversation
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>LeaveFlow, Leave Approval Assistant</span>
+      <span>AI assistant. Final decisions are made by your manager.</span>
+    </div>
+  </footer>
+
+  <!-- Floating chat button -->
+  <button class="chat-fab" type="button" data-open-chat aria-label="Start conversation with the leave assistant">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg>
+    <span class="fab-label">Start conversation</span>
+  </button>
 </div>
 
-<script>
-  const chat = document.getElementById("chat");
-  const input = document.getElementById("message");
-  const sendBtn = document.getElementById("sendButton");
-  const WELCOME = "Hello! I am the Leave Approval Assistant.\nPlease enter your Employee ID to begin.";
 
-  let threadId = localStorage.getItem("leave_thread_id");
-  if (!threadId) {
-    threadId = crypto.randomUUID();
-    localStorage.setItem("leave_thread_id", threadId);
+<!-- =====================================================
+     ASSISTANT PORTAL
+     ===================================================== -->
+<div id="portal" class="portal" hidden>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" aria-label="Assistant menu">
+    <button class="brand" type="button" id="brandHome" aria-label="Back to the home page">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14h3m-3 3h7"/></svg>
+      </span>
+      <span class="brand-name">LeaveFlow</span>
+    </button>
+
+    <nav aria-label="What would you like to do?">
+      <div class="side-title">What would you like to do?</div>
+      <div class="side-nav">
+        <button class="side-button" type="button" data-preset="I want to apply for leave">
+          <span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16M12 13v5m-2.5-2.5h5"/></svg></span>
+          <span><span class="side-label">Request leave</span><span class="side-sub">Start a new leave request</span></span>
+        </button>
+        <button class="side-button" type="button" data-preset="I want to check my leave balance">
+          <span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <span><span class="side-label">Check leave balance</span><span class="side-sub">See how many days you have left</span></span>
+        </button>
+        <button class="side-button" type="button" data-preset="I want to check my leave request status">
+          <span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h9"/></svg></span>
+          <span><span class="side-label">Check request status</span><span class="side-sub">Pending, approved or rejected</span></span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="know">
+        <h2>Good to know</h2>
+        <ul>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+            <span>You get 14 days of annual leave per year.</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+            <span>Your manager's decision arrives by email.</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+            <span>Have your Employee ID ready.</span>
+          </li>
+        </ul>
+      </div>
+      <button class="home-link" type="button" id="sidebarHome">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+        Back to home
+      </button>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <section class="chat-main" aria-label="Leave assistant chat">
+    <header class="chat-header">
+      <div class="chat-title">
+        <span class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14h3m-3 3h7"/></svg>
+        </span>
+        <div>
+          <h1>Leave Assistant</h1>
+          <div class="chat-status"><span class="status-dot"></span>AI assistant, available now</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn--outline btn--small mobile-home" type="button" id="mobileHome">Home</button>
+        <button class="btn btn--outline btn--small" type="button" id="newChat">New conversation</button>
+      </div>
+    </header>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-thread" id="chat" role="log" aria-live="polite" aria-label="Conversation"></div>
+    </div>
+
+    <div class="composer-area">
+      <div class="composer-inner">
+        <div class="chips" aria-label="Suggested actions">
+          <button class="chip" type="button" data-preset="I want to apply for leave">Request leave</button>
+          <button class="chip" type="button" data-preset="I want to check my leave balance">Check leave balance</button>
+          <button class="chip" type="button" data-preset="I want to check my leave request status">Check request status</button>
+        </div>
+        <div class="composer">
+          <input type="text" id="message" placeholder="Type your message" autocomplete="off" maxlength="1000" aria-label="Your message">
+          <button id="sendButton" type="button">
+            <span class="send-label">Send</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13"/></svg>
+          </button>
+        </div>
+        <p class="footnote">AI assistant for leave requests. Your manager makes the final decision.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+
+<script>
+  /* =====================================================
+     JAVASCRIPT
+     The chat logic is the same as before:
+     POST /chat  with  { message, thread_id }
+     and the answer is read from  data.response
+     ===================================================== */
+
+  // ---------- Page parts ----------
+  const landing   = document.getElementById("landing");
+  const portal    = document.getElementById("portal");
+  const chat      = document.getElementById("chat");
+  const chatScroll = document.getElementById("chatScroll");
+  const input     = document.getElementById("message");
+  const sendBtn   = document.getElementById("sendButton");
+
+  // The first message of the assistant. "\n" makes a new line.
+  const WELCOME = "Hello! I'm your Leave Approval Assistant.\n\nTo get started, please enter your Employee ID.";
+
+  let threadId = null;       // identifies this conversation on the server
+  let chatStarted = false;   // true after the welcome message is shown
+
+  // The little logo shown next to the assistant's messages
+  const LOGO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14h3m-3 3h7"/></svg>';
+
+  function createThreadId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return "thread-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  // ---------- Switching between the home page and the assistant ----------
+  // The address #assistant means "show the assistant". The browser Back button works.
+
+  function showPortal() {
+    if (!portal.hidden) return;
+    landing.hidden = true;
+    portal.hidden = false;
+    document.body.classList.add("in-portal");
+    window.scrollTo(0, 0);
+    input.focus();
+  }
+
+  function showLanding() {
+    if (!landing.hidden) return;
+    portal.hidden = true;
+    landing.hidden = false;
+    document.body.classList.remove("in-portal");
+    window.scrollTo(0, 0);
+  }
+
+  function goHome() {
+    history.pushState(null, "", window.location.pathname + window.location.search);
+    showLanding();
+  }
+
+  function startWelcome() {
+    if (!threadId) threadId = createThreadId();
+    if (!chatStarted) {
+      addMessage(WELCOME, "agent");
+      chatStarted = true;
+    }
+  }
+
+  function openChat(presetMessage) {
+    if (window.location.hash !== "#assistant") {
+      history.pushState(null, "", "#assistant");
+    }
+    showPortal();
+    startWelcome();
+    if (presetMessage) {
+      sendMessage(presetMessage);
+    } else {
+      input.focus();
+    }
+  }
+
+  // Runs when the page loads, and when the address changes (Back / Forward)
+  function route() {
+    if (window.location.hash === "#assistant") {
+      showPortal();
+      startWelcome();
+    } else {
+      showLanding();
+    }
+  }
+
+  // ---------- Showing messages ----------
+
+  // Makes text safe for the page, then turns **word** into bold
+  function formatText(text) {
+    const safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  }
+
+  function scrollToBottom() {
+    chatScroll.scrollTop = chatScroll.scrollHeight;
   }
 
   function addMessage(text, type) {
     const row = document.createElement("div");
     row.className = "row " + type;
 
-    const avatar = document.createElement("div");
-    avatar.className = "avatar";
-    avatar.textContent = type === "user" ? "You" : "LA";
+    // The assistant's messages have a small logo. The user's messages do not.
+    if (type === "agent") {
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.innerHTML = LOGO_SVG;
+      row.appendChild(avatar);
+    }
+
+    const stack = document.createElement("div");
+    stack.className = "stack";
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.textContent = text;
+    if (type === "agent") {
+      bubble.innerHTML = formatText(text);
+    } else {
+      bubble.textContent = text;
+    }
 
     const time = document.createElement("span");
     time.className = "time";
     time.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    bubble.appendChild(time);
 
-    row.append(avatar, bubble);
+    stack.append(bubble, time);
+    row.appendChild(stack);
     chat.appendChild(row);
-    chat.scrollTop = chat.scrollHeight;
+    scrollToBottom();
   }
 
   function showTyping() {
+    hideTyping();
     const row = document.createElement("div");
     row.className = "row agent typing";
     row.id = "typing";
-    row.innerHTML = '<div class="avatar">LA</div><div class="bubble"><span></span><span></span><span></span></div>';
+
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.innerHTML = LOGO_SVG;
+
+    const stack = document.createElement("div");
+    stack.className = "stack";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.setAttribute("aria-label", "The assistant is typing");
+    bubble.innerHTML = "<span></span><span></span><span></span>";
+
+    stack.appendChild(bubble);
+    row.append(avatar, stack);
     chat.appendChild(row);
-    chat.scrollTop = chat.scrollHeight;
+    scrollToBottom();
   }
 
   function hideTyping() {
-    const t = document.getElementById("typing");
-    if (t) t.remove();
+    const typing = document.getElementById("typing");
+    if (typing) typing.remove();
   }
+
+  // ---------- Sending a message to the server ----------
 
   async function sendMessage(preset) {
     const message = (typeof preset === "string" ? preset : input.value).trim();
     if (!message || sendBtn.disabled) return;
+
+    if (!threadId) threadId = createThreadId();
 
     addMessage(message, "user");
     input.value = "";
@@ -184,49 +940,78 @@
         body: JSON.stringify({ message: message, thread_id: threadId })
       });
 
-      // Read as text first, so a non-JSON server reply does not show a JSON error
       const raw = await response.text();
       let data;
       try {
         data = JSON.parse(raw);
       } catch (e) {
-        throw new Error("The server is waking up or busy. Please wait a minute and try again.");
+        throw new Error("The server sent an unexpected reply. Please wait a moment and try again.");
       }
 
-      if (!response.ok) throw new Error(data.detail || "Something went wrong.");
+      if (!response.ok) {
+        throw new Error(data.detail || "I could not process that message. Please try again.");
+      }
 
       hideTyping();
-      addMessage(data.response, "agent");
+      addMessage(data.response ?? "I received an empty reply. Please try again.", "agent");
     } catch (error) {
       hideTyping();
-      const msg = error.message === "Failed to fetch"
-        ? "Cannot reach the server. Please try again in a minute."
+      const messageText = error.message === "Failed to fetch"
+        ? "I could not reach the server. Check your internet connection and try again."
         : error.message;
-      addMessage(msg, "agent");
+      addMessage(messageText, "agent");
     } finally {
       sendBtn.disabled = false;
       input.focus();
     }
   }
 
+  // ---------- Starting over ----------
+
   function newChat() {
-    threadId = crypto.randomUUID();
-    localStorage.setItem("leave_thread_id", threadId);
+    threadId = createThreadId();
     chat.innerHTML = "";
-    addMessage(WELCOME, "agent");
+    chatStarted = false;
+    startWelcome();
+    document.querySelectorAll(".side-button").forEach(b => b.removeAttribute("aria-current"));
+    input.value = "";
     input.focus();
   }
 
-  sendBtn.addEventListener("click", () => sendMessage());
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+  // ---------- Buttons ----------
+
+  // Every "Start conversation" button and the floating chat button
+  document.querySelectorAll("[data-open-chat]").forEach(button => {
+    button.addEventListener("click", () => openChat());
+  });
+
+  // The three actions in the sidebar and under the message box
+  document.querySelectorAll("[data-preset]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (button.classList.contains("side-button")) {
+        document.querySelectorAll(".side-button").forEach(b => b.removeAttribute("aria-current"));
+        button.setAttribute("aria-current", "true");
+      }
+      sendMessage(button.dataset.preset);
+    });
+  });
+
+  document.getElementById("brandHome").addEventListener("click", goHome);
+  document.getElementById("sidebarHome").addEventListener("click", goHome);
+  document.getElementById("mobileHome").addEventListener("click", goHome);
   document.getElementById("newChat").addEventListener("click", newChat);
-  document.querySelectorAll(".chip").forEach((c) =>
-    c.addEventListener("click", () => sendMessage(c.dataset.text))
-  );
+  sendBtn.addEventListener("click", () => sendMessage());
 
-  addMessage(WELCOME, "agent");
-  input.focus();
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  });
+
+  window.addEventListener("popstate", route);
+  window.addEventListener("hashchange", route);
+  route();
 </script>
-
 </body>
 </html>
