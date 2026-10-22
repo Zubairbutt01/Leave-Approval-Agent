@@ -6,7 +6,7 @@ An AI assistant that handles employee leave requests through a simple chat. The 
 
 *(Hosted on Render's free tier, so the first load can take up to a minute while the server wakes up.)*
 
-![App screenshot](screenshot.png)
+![App screenshot](Leaveapprovalagent.png)
 
 ## Why I built this
 
