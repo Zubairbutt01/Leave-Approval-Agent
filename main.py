@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from leave_agent import agent, supabase, make_token
+from leave_agent import agent, supabase, make_token, notify_employee
 
 
 # =========================================================
@@ -191,6 +191,21 @@ def decision(request_id: int, action: str, token: str):
             "Please try again.",
             "#dc2626"
         )
+
+    # Email the employee about the decision.
+    # If this fails, the manager still sees "Request Approved / Rejected",
+    # because the decision is already saved.
+    try:
+
+        email_result = notify_employee.invoke(
+            {"request_id": str(request_id)}
+        )
+
+        print("EMPLOYEE EMAIL:", email_result)
+
+    except Exception as e:
+
+        print("EMPLOYEE EMAIL ERROR:", repr(e))
 
     color = "#16a34a" if new_status == "Approved" else "#dc2626"
 

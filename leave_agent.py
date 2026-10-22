@@ -3,7 +3,7 @@ import smtplib
 import hmac
 import hashlib
 from html import escape
-from datetime import date
+from datetime import date, datetime, timezone
 import httpx
 
 from dotenv import load_dotenv
@@ -388,6 +388,227 @@ def get_employee_details(employee_id: str) -> str:
         f"Email: {e['email']}, "
         f"Department ID: {e['department_id']}, "
         f"Leave balance: {e['annual_leave_balance']} day(s)."
+    )
+
+
+# =========================================================
+# 7B. TOOL 6 - NOTIFY EMPLOYEE
+# =========================================================
+
+@tool
+def notify_employee(request_id: str) -> str:
+
+    """
+    Email the employee the manager's decision (Approved or Rejected).
+    The Approve / Reject page calls this after the manager clicks.
+    It sends only ONE email for each request, even if it is called twice.
+    """
+
+    # --- 1. Check the request ID ---
+    try:
+
+        request_id = int(request_id)
+
+    except ValueError:
+
+        return "Invalid request ID."
+
+    # --- 2. Find the request ---
+    rows = (
+        supabase
+        .table("leave_requests")
+        .select("*")
+        .eq("request_id", request_id)
+        .execute()
+        .data
+    )
+
+    if len(rows) == 0:
+
+        return (
+            f"No leave request found with ID {request_id}."
+        )
+
+    r = rows[0]
+
+    # --- 3. Only email when the manager has really decided ---
+    decision = str(r["status"]).strip().lower()
+
+    if decision not in ("approved", "rejected"):
+
+        return (
+            f"Request #{request_id} has no decision yet, "
+            f"so no email was sent."
+        )
+
+    if not RESEND_API_KEY:
+
+        return "Employee email failed: RESEND_API_KEY is not set."
+
+    # --- 4. Claim the email, so it is sent only ONCE ---
+    # (A double click makes two calls. Only the first one gets the claim.)
+    try:
+
+        claimed = (
+            supabase
+            .table("leave_requests")
+            .update({
+                "employee_notified_at":
+                    datetime.now(timezone.utc).isoformat()
+            })
+            .eq("request_id", request_id)
+            .is_("employee_notified_at", "null")
+            .execute()
+            .data
+        )
+
+    except Exception as e:
+
+        # Shows the real reason in the Render Logs
+        print("NOTIFY EMPLOYEE ERROR:", repr(e))
+
+        return (
+            f"Request #{request_id} was decided, but the email to the "
+            f"employee could not be prepared."
+        )
+
+    if len(claimed) == 0:
+
+        return (
+            f"The employee was already emailed about request #{request_id}."
+        )
+
+    # --- 5. Find the employee and the email address (from the database) ---
+    people = (
+        supabase
+        .table("employees")
+        .select("first_name, email, annual_leave_balance")
+        .eq("employee_id", r["employee_id"])
+        .execute()
+        .data
+    )
+
+    if len(people) == 0 or not people[0].get("email"):
+
+        # Put the claim back, so it can be tried again later
+        (
+            supabase
+            .table("leave_requests")
+            .update({"employee_notified_at": None})
+            .eq("request_id", request_id)
+            .execute()
+        )
+
+        return (
+            f"Request #{request_id} was decided, but the employee has "
+            f"no email address saved."
+        )
+
+    person = people[0]
+
+    # --- 6. Write the email ---
+    if decision == "approved":
+
+        word = "Approved"
+        color = "#16a34a"
+
+    else:
+
+        word = "Rejected"
+        color = "#dc2626"
+
+    name = person.get("first_name") or "there"
+
+    subject = f"Your leave request #{request_id} was {word}"
+
+    text = (
+        f"Hello {name},\n\n"
+        f"Your leave request #{request_id} was {word}.\n\n"
+        f"From: {r['start_date']}\n"
+        f"To: {r['end_date']}\n"
+        f"Days: {r['total_days']}\n\n"
+        f"Your remaining annual leave balance: "
+        f"{person['annual_leave_balance']} day(s).\n\n"
+        f"This is an automatic message from the Leave Approval Agent."
+    )
+
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;
+                margin:auto;border:1px solid #e5e7eb;
+                border-radius:10px;overflow:hidden">
+      <div style="background:{color};color:#fff;padding:16px 20px">
+        <h2 style="margin:0">Leave request {word}</h2>
+        <div style="opacity:.9">Request #{request_id}</div>
+      </div>
+      <div style="padding:20px;color:#111827;line-height:1.7">
+        Hello {escape(str(name))},<br><br>
+        Your leave request was <b>{word}</b>.<br><br>
+        <b>From:</b> {escape(str(r['start_date']))} &nbsp;
+        <b>To:</b> {escape(str(r['end_date']))}<br>
+        <b>Days:</b> {escape(str(r['total_days']))}<br>
+        <b>Remaining balance:</b>
+        {escape(str(person['annual_leave_balance']))} day(s)
+        <p style="color:#6b7280;font-size:13px;margin-top:22px">
+          This is an automatic message from the Leave Approval Agent.
+        </p>
+      </div>
+    </div>
+    """
+
+    # --- 7. Send it with Resend ---
+    problem = None
+
+    try:
+
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}"
+            },
+            json={
+                "from": (
+                    os.getenv("EMAIL_FROM")
+                    or "Leave Agent <onboarding@resend.dev>"
+                ),
+                "to": [person["email"]],
+                "subject": subject,
+                "text": text,
+                "html": html_body,
+            },
+            timeout=15,
+        )
+
+        response.raise_for_status()
+
+    except httpx.HTTPStatusError as error:
+
+        # We keep only the status code. The key is never shown.
+        problem = f"status code {error.response.status_code}"
+
+    except Exception as error:
+
+        problem = type(error).__name__
+
+    # --- 8. If sending failed, put the claim back, so it can be tried again ---
+    if problem:
+
+        (
+            supabase
+            .table("leave_requests")
+            .update({"employee_notified_at": None})
+            .eq("request_id", request_id)
+            .execute()
+        )
+
+        print("NOTIFY EMPLOYEE FAILED:", problem)
+
+        return (
+            f"Request #{request_id} was decided, but the email to the "
+            f"employee failed ({problem})."
+        )
+
+    return (
+        f"Employee has been emailed about request #{request_id}."
     )
 
 
