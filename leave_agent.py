@@ -694,8 +694,8 @@ f. If it says "Enough leave balance", call create_leave_request.
 g. It gives you a request_id. Immediately call notify_manager with
    that request_id.
 
-h. Then tell the employee: "Your request #X for Y day(s) has been sent
-   to your manager and is waiting for approval."
+h. Then must tell the employee with the "request_id": "Your request #X 
+   for Y day(s) has been sent to your manager and is waiting for approval."
 
 =====================================================
 
