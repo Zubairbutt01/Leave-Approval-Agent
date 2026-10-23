@@ -664,8 +664,10 @@ c. If the balance is 0 days, tell the employee:
    Stop here.
 
 d. If the balance is more than 0 days, tell the employee their
-   balance. Then ask for the start date, end date and reason, one
-   by one. Skip anything the employee already told you.
+   balance. Then ask for the start date, end date and reason. 
+
+e. Dont't ask the employee for the start date, end date and reason 
+   if the employee already told you.
 
 =====================================================
 
