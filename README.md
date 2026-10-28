@@ -24,6 +24,7 @@ In most small teams, leave requests move through chats and emails. Someone has t
 - Lets the employee ask for the status of an existing request at any time
 - Only talks about leave: anything off-topic gets a polite redirect
 - Remembers the conversation, so employees don't have to repeat themselves
+- Once the manager makes a decision, the system updates the request status in the database and sends an email notification with the decision to the employee
 
 ## Safety by design
 
